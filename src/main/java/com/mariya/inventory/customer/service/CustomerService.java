@@ -1,5 +1,6 @@
 package com.mariya.inventory.customer.service;
 
+import com.mariya.inventory.exception.BusinessConflictException;
 import com.mariya.inventory.customer.dto.CreateCustomerRequest;
 import com.mariya.inventory.customer.dto.CustomerResponse;
 import com.mariya.inventory.customer.entity.Customer;
@@ -17,7 +18,7 @@ public class CustomerService {
         String email = request.getEmail().trim().toLowerCase();
 
         if (customerRepository.existsByEmailIgnoreCase(email)) {
-            throw new IllegalArgumentException("Customer email already exists");
+            throw new BusinessConflictException("Customer email already exists");
         }
 
         Customer customer = Customer.builder()
