@@ -2,12 +2,13 @@ package com.mariya.inventory.order.service;
 
 import com.mariya.inventory.customer.entity.Customer;
 import com.mariya.inventory.customer.repository.CustomerRepository;
+import com.mariya.inventory.exception.BusinessConflictException;
+import com.mariya.inventory.exception.ResourceNotFoundException;
 import com.mariya.inventory.order.dto.*;
 import com.mariya.inventory.order.entity.CustomerOrder;
 import com.mariya.inventory.order.entity.OrderItem;
 import com.mariya.inventory.order.entity.OrderStatus;
 import com.mariya.inventory.order.repository.CustomerOrderRepository;
-import com.mariya.inventory.order.repository.OrderItemRepository;
 import com.mariya.inventory.product.entity.Product;
 import com.mariya.inventory.product.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,13 +23,13 @@ import java.time.LocalDateTime;
 public class OrderService {
 
     private final CustomerOrderRepository orderRepository;
-    private final OrderItemRepository orderItemRepository;
+
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
 
     public CreateOrderResponse createDraftOrder(Long customerId) {
         Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new IllegalArgumentException("Customer not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
 
         CustomerOrder order = CustomerOrder.builder()
                 .customer(customer)
@@ -98,14 +99,14 @@ public class OrderService {
         ensureDraft(order);
 
         if (order.getItems().isEmpty()) {
-            throw new IllegalArgumentException("Cannot confirm an empty order");
+            throw new BusinessConflictException("Cannot confirm an empty order");
         }
 
         for (OrderItem item : order.getItems()) {
             Product product = item.getProduct();
 
             if (product.getStockQuantity() < item.getQuantity()) {
-                throw new IllegalArgumentException(
+                throw new BusinessConflictException(
                         "Insufficient stock for product: " + product.getName()
                 );
             }
@@ -151,12 +152,12 @@ public class OrderService {
             return cancelOrder(order);
         }
 
-        throw new IllegalArgumentException("Unsupported status update");
+        throw new BusinessConflictException("Unsupported status update");
     }
 
     private OrderResponse shipOrder(CustomerOrder order) {
         if (order.getStatus() != OrderStatus.CONFIRMED) {
-            throw new IllegalArgumentException("Only CONFIRMED orders can be shipped");
+            throw new BusinessConflictException("Only CONFIRMED orders can be shipped");
         }
 
         order.setStatus(OrderStatus.SHIPPED);
@@ -167,7 +168,7 @@ public class OrderService {
 
     private OrderResponse deliverOrder(CustomerOrder order) {
         if (order.getStatus() != OrderStatus.SHIPPED) {
-            throw new IllegalArgumentException("Only SHIPPED orders can be delivered");
+            throw new BusinessConflictException("Only SHIPPED orders can be delivered");
         }
 
         order.setStatus(OrderStatus.DELIVERED);
@@ -178,11 +179,11 @@ public class OrderService {
 
     private OrderResponse cancelOrder(CustomerOrder order) {
         if (order.getStatus() == OrderStatus.CANCELLED) {
-            throw new IllegalArgumentException("Order is already cancelled");
+            throw new BusinessConflictException("Order is already cancelled");
         }
 
         if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new IllegalArgumentException("Delivered orders cannot be cancelled");
+            throw new BusinessConflictException("Delivered orders cannot be cancelled");
         }
 
         if (order.getStatus() == OrderStatus.CONFIRMED || order.getStatus() == OrderStatus.SHIPPED) {
@@ -200,17 +201,17 @@ public class OrderService {
 
     private CustomerOrder getOrderEntity(Long orderId) {
         return orderRepository.findById(orderId)
-                .orElseThrow(() -> new IllegalArgumentException("Order not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
     }
 
     private Product getProductEntity(Long productId) {
         return productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
     }
 
     private void ensureDraft(CustomerOrder order) {
         if (order.getStatus() != OrderStatus.DRAFT) {
-            throw new IllegalArgumentException("Order must be in DRAFT status");
+            throw new BusinessConflictException("Order must be in DRAFT status");
         }
     }
 
@@ -219,6 +220,6 @@ public class OrderService {
                 .stream()
                 .filter(item -> item.getId().equals(itemId))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Order item not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Order item not found"));
     }
 }
