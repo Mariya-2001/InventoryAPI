@@ -1,5 +1,7 @@
 package com.mariya.inventory.product.service;
 
+import com.mariya.inventory.exception.BusinessConflictException;
+import com.mariya.inventory.exception.ResourceNotFoundException;
 import com.mariya.inventory.category.entity.Category;
 import com.mariya.inventory.category.repository.CategoryRepository;
 import com.mariya.inventory.product.dto.CreateProductRequest;
@@ -21,11 +23,11 @@ public class ProductService {
 
     public ProductResponse createProduct(CreateProductRequest request) {
         if (productRepository.existsBySkuIgnoreCase(request.getSku().trim())) {
-            throw new IllegalArgumentException("Product SKU already exists");
+            throw new BusinessConflictException("Product SKU already exists");
         }
 
         Category category = categoryRepository.findById(request.getCategoryId())
-                .orElseThrow(() -> new IllegalArgumentException("Category not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
         Product product = Product.builder()
                 .name(request.getName().trim())
@@ -47,19 +49,19 @@ public class ProductService {
 
     public ProductResponse getProductById(Long id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         return ProductResponse.from(product);
     }
 
     public ProductResponse adjustStock(Long productId, StockAdjustmentRequest request) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Product not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found"));
 
         int newQuantity = product.getStockQuantity() + request.getQuantityChange();
 
         if (newQuantity < 0) {
-            throw new IllegalArgumentException("Stock quantity cannot become negative");
+            throw new BusinessConflictException("Stock quantity cannot become negative");
         }
 
         product.setStockQuantity(newQuantity);
